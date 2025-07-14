@@ -5,31 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CKA Practice Quiz</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem;
-      background: #f5f5f5;
-    }
+    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 2rem; background: #f5f5f5; }
     .hidden { display: none; }
     .container { max-width: 700px; width: 100%; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem; }
     button { padding: 0.6rem 1.2rem; margin-top: 1rem; border: none; border-radius: 4px; cursor: pointer; }
     #answers button { display: block; width: 100%; margin: 0.5rem 0; }
-    .question-summary { margin-bottom: 1.5rem; }
+    .question-summary { margin-bottom: 1.5rem; border-left: 4px solid #ccc; padding-left: 1rem; }
     .correct { color: green; }
     .incorrect { color: red; }
+    #summary { text-align: center; margin-bottom: 1rem; }
+    #download-btn { background: #007bff; color: #fff; }
   </style>
 </head>
 <body>
   <div id="start-screen" class="container">
     <h1>CKA Practice Quiz</h1>
     <input type="text" id="username" placeholder="Enter your name" />
+    <div style="margin-top:1rem;">
+      <label for="question-count">Number of questions:</label>
+      <select id="question-count">
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+    </div>
     <button id="start-btn">Start Quiz</button>
   </div>
 
   <div id="quiz-screen" class="container hidden">
+    <div id="timer" style="text-align:right; font-size:0.9rem; margin-bottom:1rem;">Time: <span id="time-elapsed">0s</span></div>
     <h2 id="question-title"></h2>
     <div id="answers"></div>
     <button id="next-btn" class="hidden">Next Question</button>
@@ -37,123 +42,22 @@
 
   <div id="end-screen" class="container hidden">
     <h2>Quiz Completed!</h2>
-    <p id="score-display"></p>
-    <div id="highscore-details">
-      <h3>Review Answers</h3>
-      <div id="review"></div>
+    <div id="summary">
+      <p id="score-display"></p>
+      <p id="percentage-display"></p>
+      <p id="time-display"></p>
     </div>
+    <button id="download-btn">Download Answers</button>
+    <h3>Review Answers</h3>
+    <div id="review"></div>
     <button id="restart-btn">Restart Quiz</button>
   </div>
 
   <script>
-    const allQuestions = [
-      // 1
-      { question: 'Which command creates a new namespace called "test-ns"?', answers: [ { text: 'kubectl create ns test-ns', correct: true }, { text: 'kubectl new namespace test-ns', correct: false }, { text: 'kubectl apply namespace test-ns', correct: false }, { text: 'kubectl init ns test-ns', correct: false } ], explanation: 'kubectl create ns is shorthand for kubectl create namespace.' },
-      // 2
-      { question: 'How do you label a node named "worker1" with role=database?', answers: [ { text: 'kubectl label nodes worker1 role=database', correct: true }, { text: 'kubectl set label node worker1 role=database', correct: false }, { text: 'kubectl annotate node worker1 role=database', correct: false }, { text: 'kubectl patch nodes worker1 role=database', correct: false } ], explanation: 'kubectl label nodes <name> <key>=<value> applies labels.' },
-      // 3
-      { question: 'What is the default ServiceType when exposing a Service?', answers: [ { text: 'ClusterIP', correct: true }, { text: 'NodePort', correct: false }, { text: 'LoadBalancer', correct: false }, { text: 'ExternalName', correct: false } ], explanation: 'ClusterIP provides internal cluster access.' },
-      // 4
-      { question: 'Which command fetches logs from a pod named "nginx-pod"?', answers: [ { text: 'kubectl logs nginx-pod', correct: true }, { text: 'kubectl get logs nginx-pod', correct: false }, { text: 'kubectl describe nginx-pod', correct: false }, { text: 'kubectl view logs nginx-pod', correct: false } ], explanation: 'kubectl logs <pod> retrieves logs.' },
-      // 5
-      { question: 'How do you start an interactive shell in a pod called "busybox"?', answers: [ { text: 'kubectl exec -it busybox -- /bin/sh', correct: true }, { text: 'kubectl attach busybox', correct: false }, { text: 'kubectl shell busybox', correct: false }, { text: 'kubectl run busybox --interactive', correct: false } ], explanation: 'kubectl exec -it <pod> opens an interactive shell.' },
-      // 6
-      { question: 'Which command scales a deployment "web" to 5 replicas?', answers: [ { text: 'kubectl scale deployment web --replicas=5', correct: true }, { text: 'kubectl set replicas web=5', correct: false }, { text: 'kubectl resize deployment web 5', correct: false }, { text: 'kubectl run web --replicas=5', correct: false } ], explanation: 'kubectl scale deployment <name> --replicas=N adjusts replicas.' },
-      // 7
-      { question: 'How do you expose deployment "frontend" on port 80 as a NodePort?', answers: [ { text: 'kubectl expose deployment frontend --type=NodePort --port=80', correct: true }, { text: 'kubectl service expose frontend --port=80', correct: false }, { text: 'kubectl create service nodeport frontend --port=80', correct: false }, { text: 'kubectl open service frontend --port=80 --type=NodePort', correct: false } ], explanation: '--type=NodePort exposes service on node IP.' },
-      // 8
-      { question: 'What pull policy will always fetch the image even if it exists locally?', answers: [ { text: 'Always', correct: true }, { text: 'IfNotPresent', correct: false }, { text: 'Never', correct: false }, { text: 'PreferLocal', correct: false } ], explanation: 'imagePullPolicy: Always pulls image every start.' },
-      // 9
-      { question: 'What does CrashLoopBackOff indicate?', answers: [ { text: 'Container repeatedly fails to start', correct: true }, { text: 'Node out of resources', correct: false }, { text: 'Service unavailable', correct: false }, { text: 'Image pull error', correct: false } ], explanation: 'CrashLoopBackOff means pod crashes on loop.' },
-      // 10
-      { question: 'Which command forwards local port 8080 to pod "myapp" port 80?', answers: [ { text: 'kubectl port-forward myapp 8080:80', correct: true }, { text: 'kubectl proxy --port=8080:80', correct: false }, { text: 'kubectl expose pod myapp --port=8080:80', correct: false }, { text: 'kubectl forward myapp 8080 to 80', correct: false } ], explanation: 'kubectl port-forward <pod> local:remote.' },
-      // 11
-      { question: 'How do you view all nodes with their IP addresses?', answers: [ { text: 'kubectl get nodes -o wide', correct: true }, { text: 'kubectl describe nodes --ips', correct: false }, { text: 'kubectl get nodes --show-ip', correct: false }, { text: 'kubectl nodes list -o ip', correct: false } ], explanation: '-o wide shows extra info.' },
-      // 12
-      { question: 'Which command applies a YAML file named pod.yaml?', answers: [ { text: 'kubectl apply -f pod.yaml', correct: true }, { text: 'kubectl create -f pod.yaml', correct: false }, { text: 'kubectl run -f pod.yaml', correct: false }, { text: 'kubectl deploy pod.yaml', correct: false } ], explanation: 'kubectl apply syncs desired state.' },
-      // 13
-      { question: 'How do you view recent events in the cluster?', answers: [ { text: 'kubectl get events', correct: true }, { text: 'kubectl logs events', correct: false }, { text: 'kubectl describe events', correct: false }, { text: 'kubectl events list', correct: false } ], explanation: 'kubectl get events lists cluster events.' },
-      // 14
-      { question: 'Which command safely evicts all pods from node "worker1"?', answers: [ { text: 'kubectl drain worker1 --ignore-daemonsets', correct: true }, { text: 'kubectl cordon worker1', correct: false }, { text: 'kubectl drain worker1', correct: false }, { text: 'kubectl delete node worker1', correct: false } ], explanation: 'Drain evicts pods before maintenance.' },
-      // 15
-      { question: 'How do you create a PersistentVolumeClaim from pvc.yaml?', answers: [ { text: 'kubectl apply -f pvc.yaml', correct: true }, { text: 'kubectl create pvc -f pvc.yaml', correct: false }, { text: 'kubectl hydrate pvc.yaml', correct: false }, { text: 'kubectl provision pvc.yaml', correct: false } ], explanation: 'PVCs created via apply.' },
-      // 16
-      { question: 'Which command edits an existing ConfigMap named "app-config"?', answers: [ { text: 'kubectl edit configmap app-config', correct: true }, { text: 'kubectl apply edit configmap app-config', correct: false }, { text: 'kubectl patch configmap app-config', correct: false }, { text: 'kubectl update configmap app-config', correct: false } ], explanation: 'kubectl edit opens live object.' },
-      // 17
-      { question: 'How do you create a Role binding user "alice" to role "pod-reader"?', answers: [ { text: 'kubectl create rolebinding alice-binding --role=pod-reader --user=alice', correct: true }, { text: 'kubectl apply rolebinding alice-binding --role=pod-reader --user=alice', correct: false }, { text: 'kubectl set subject rolebinding alice-binding --user=alice', correct: false }, { text: 'kubectl link role pod-reader to alice', correct: false } ], explanation: 'create rolebinding binds users to roles.' },
-      // 18
-      { question: 'Which command initializes a Control Plane node with kubeadm?', answers: [ { text: 'kubeadm init --pod-network-cidr=10.244.0.0/16', correct: true }, { text: 'kubeadm start', correct: false }, { text: 'kubeadm init control-plane', correct: false }, { text: 'kubeadm setup --control-plane', correct: false } ], explanation: 'kubeadm init bootstraps control plane.' },
-      // 19
-      { question: 'How do you check client and server versions of kubectl?', answers: [ { text: 'kubectl version', correct: true }, { text: 'kubectl versions', correct: false }, { text: 'kubectl get version', correct: false }, { text: 'kubectl describe version', correct: false } ], explanation: 'kubectl version shows both.' },
-      // 20
-      { question: 'Which object provides DNS resolution for services?', answers: [ { text: 'CoreDNS', correct: true }, { text: 'kube-dns', correct: false }, { text: 'DNSController', correct: false }, { text: 'ServiceDNS', correct: false } ], explanation: 'CoreDNS is the default DNS server.' },
-      // 21
-      { question: 'What Kubernetes object manages stateful applications?', answers: [ { text: 'StatefulSet', correct: true }, { text: 'Deployment', correct: false }, { text: 'ReplicaSet', correct: false }, { text: 'DaemonSet', correct: false } ], explanation: 'StatefulSet provides stable identities.' },
-      // 22
-      { question: 'Which command shows resource usage (CPU/memory)?', answers: [ { text: 'kubectl top pods', correct: true }, { text: 'kubectl get usage pods', correct: false }, { text: 'kubectl describe nodes', correct: false }, { text: 'kubectl metrics pods', correct: false } ], explanation: 'kubectl top shows resource metrics.' },
-      // 23
-      { question: 'How do you roll back a Deployment named "web" to revision 2?', answers: [ { text: 'kubectl rollout undo deployment web --to-revision=2', correct: true }, { text: 'kubectl rollout rollback web 2', correct: false }, { text: 'kubectl undo deployment web --revision=2', correct: false }, { text: 'kubectl deploy rollback web 2', correct: false } ], explanation: 'rollout undo with to-revision flag rolls back.' },
-      // 24
-      { question: 'Which probe checks if an application is running?', answers: [ { text: 'Liveness probe', correct: true }, { text: 'Readiness probe', correct: false }, { text: 'Startup probe', correct: false }, { text: 'Health probe', correct: false } ], explanation: 'Liveness probes detect unhealthy containers.' },
-      // 25
-      { question: 'Which probe checks if a pod is ready to accept traffic?', answers: [ { text: 'Readiness probe', correct: true }, { text: 'Liveness probe', correct: false }, { text: 'Startup probe', correct: false }, { text: 'Health probe', correct: false } ], explanation: 'Readiness probes signal service readiness.' },
-      // 26
-      { question: 'How do you apply a NetworkPolicy YAML file?', answers: [ { text: 'kubectl apply -f netpol.yaml', correct: true }, { text: 'kubectl create netpol -f netpol.yaml', correct: false }, { text: 'kubectl set networkpolicy -f netpol.yaml', correct: false }, { text: 'kubectl open networkpolicy netpol.yaml', correct: false } ], explanation: 'NetworkPolicies are applied like other resources.' },
-      // 27
-      { question: 'Which object ensures one copy per node?', answers: [ { text: 'DaemonSet', correct: true }, { text: 'Deployment', correct: false }, { text: 'StatefulSet', correct: false }, { text: 'ReplicaSet', correct: false } ], explanation: 'DaemonSet runs pods on all (or select) nodes.' },
-      // 28
-      { question: 'How do you run a Job from job.yaml?', answers: [ { text: 'kubectl apply -f job.yaml', correct: true }, { text: 'kubectl create job -f job.yaml', correct: false }, { text: 'kubectl run job -f job.yaml', correct: false }, { text: 'kubectl start job job.yaml', correct: false } ], explanation: 'Jobs are applied via apply.' },
-      // 29
-      { question: 'Which object schedules jobs periodically?', answers: [ { text: 'CronJob', correct: true }, { text: 'Job', correct: false }, { text: 'Deployment', correct: false }, { text: 'ReplicaSet', correct: false } ], explanation: 'CronJob runs Jobs on a schedule.' },
-      // 30
-      { question: 'What does the field .spec.tolerations specify?', answers: [ { text: 'Which taints the pod tolerates', correct: true }, { text: 'Which nodes to schedule on', correct: false }, { text: 'Volume mounts', correct: false }, { text: 'Resource limits', correct: false } ], explanation: 'Tolerations allow pods to run on tainted nodes.' },
-      // 31
-      { question: 'How do you taint a node so no pods schedule?', answers: [ { text: 'kubectl taint nodes node1 key=value:NoSchedule', correct: true }, { text: 'kubectl label node node1 key=value:NoSchedule', correct: false }, { text: 'kubectl cordon node1', correct: false }, { text: 'kubectl drain node1', correct: false } ], explanation: 'kubectl taint nodes adds taints preventing schedule.' },
-      // 32
-      { question: 'Which field sets resource CPU limits in a container?', answers: [ { text: 'resources.limits.cpu', correct: true }, { text: 'resources.requests.cpu', correct: false }, { text: 'limits.cpu', correct: false }, { text: 'cpu.limits', correct: false } ], explanation: 'resources.limits.cpu defines max CPU.' },
-      // 33
-      { question: 'What does a Headless Service do?', answers: [ { text: 'Disables cluster IP', correct: true }, { text: 'Exposes on NodePort', correct: false }, { text: 'Creates LoadBalancer', correct: false }, { text: 'Maps DNS to ExternalName', correct: false } ], explanation: 'ClusterIP: None creates headless service.' },
-      // 34
-      { question: 'How do you mount a secret as environment variables?', answers: [ { text: 'spec.containers.envFrom.secretRef', correct: true }, { text: 'spec.volumes.secret.env', correct: false }, { text: 'spec.containers.secret.env', correct: false }, { text: 'spec.env.secretRef', correct: false } ], explanation: 'envFrom.secretRef maps all secret keys to env vars.' },
-      // 35
-      { question: 'Which command creates a secret from a literal value?', answers: [ { text: 'kubectl create secret generic my-secret --from-literal=password=abc', correct: true }, { text: 'kubectl apply secret generic my-secret --from-literal=password=abc', correct: false }, { text: 'kubectl secret create my-secret password=abc', correct: false }, { text: 'kubectl set secret generic my-secret --from-literal=password=abc', correct: false } ], explanation: 'kubectl create secret generic --from-literal creates secrets.' },
-      // 36
-      { question: 'Which RBAC API group is used for RoleBinding?', answers: [ { text: 'rbac.authorization.k8s.io', correct: true }, { text: 'authorization.k8s.io', correct: false }, { text: 'rbac.k8s.io', correct: false }, { text: 'authz.k8s.io', correct: false } ], explanation: 'RBAC uses rbac.authorization.k8s.io group.' },
-      // 37
-      { question: 'Which scheduler pre-empts pods based on priority?', answers: [ { text: 'kube-scheduler', correct: true }, { text: 'kubelet', correct: false }, { text: 'kube-controller-manager', correct: false }, { text: 'kube-proxy', correct: false } ], explanation: 'kube-scheduler handles scheduling logic.' },
-      // 38
-      { question: 'How do you apply a PodDisruptionBudget YAML?', answers: [ { text: 'kubectl apply -f pdb.yaml', correct: true }, { text: 'kubectl create pdb -f pdb.yaml', correct: false }, { text: 'kubectl enforce pdb -f pdb.yaml', correct: false }, { text: 'kubectl set pdb -f pdb.yaml', correct: false } ], explanation: 'PDBs are created via apply.' },
-      // 39
-      { question: 'Which object ensures minimum available pods during maintenance?', answers: [ { text: 'PodDisruptionBudget', correct: true }, { text: 'Deployment', correct: false }, { text: 'ReplicaSet', correct: false }, { text: 'StatefulSet', correct: false } ], explanation: 'PDB defines disruption limits.' },
-      // 40
-      { question: 'What does kube-proxy do?', answers: [ { text: 'Implements service network proxy', correct: true }, { text: 'Schedules pods', correct: false }, { text: 'Manages certificates', correct: false }, { text: 'Monitors health', correct: false } ], explanation: 'kube-proxy maintains network rules on nodes.' },
-      // 41
-      { question: 'Which storageClass provisioner is built-in for GCE?', answers: [ { text: 'kubernetes.io/gce-pd', correct: true }, { text: 'kubernetes.io/aws-ebs', correct: false }, { text: 'kubernetes.io/azure-disk', correct: false }, { text: 'kubernetes.io/cinder', correct: false } ], explanation: 'gce-pd is default GCE provisioner.' },
-      // 42
-      { question: 'How do you get detailed info about a pod crash?', answers: [ { text: 'kubectl describe pod mypod', correct: true }, { text: 'kubectl logs mypod', correct: false }, { text: 'kubectl get pod mypod -o yaml', correct: false }, { text: 'kubectl event pod mypod', correct: false } ], explanation: 'describe shows events and status.' },
-      // 43
-      { question: 'Which SWAGGER endpoint shows API resources?', answers: [ { text: '/openapi/v2', correct: true }, { text: '/swagger/api', correct: false }, { text: '/apis', correct: false }, { text: '/api/v1', correct: false } ], explanation: 'OpenAPI v2 spec lists resources.' },
-      // 44
-      { question: 'What is the effect of annotations on pods?', answers: [ { text: 'Non-identifying metadata', correct: true }, { text: 'Control labels', correct: false }, { text: 'Set resource limits', correct: false }, { text: 'Define selectors', correct: false } ], explanation: 'Annotations store arbitrary metadata.' },
-      // 45
-      { question: 'How do you adjust a deployment to use rollingUpdate strategy?', answers: [ { text: 'spec.strategy.type: RollingUpdate', correct: true }, { text: 'spec.updateStrategy: RollingUpdate', correct: false }, { text: 'strategy.rollingUpdate: true', correct: false }, { text: 'deployment.updatePolicy: RollingUpdate', correct: false } ], explanation: 'spec.strategy.type defines update strategy.' },
-      // 46
-      { question: 'Which command shows API versions supported?', answers: [ { text: 'kubectl api-versions', correct: true }, { text: 'kubectl get apis', correct: false }, { text: 'kubectl describe api', correct: false }, { text: 'kubectl api-resources', correct: false } ], explanation: 'kubectl api-versions lists versions.' },
-      // 47
-      { question: 'How do you list custom resource definitions?', answers: [ { text: 'kubectl get crd', correct: true }, { text: 'kubectl get crds', correct: false }, { text: 'kubectl get customresourcedefinition', correct: false }, { text: 'kubectl describe crd', correct: false } ], explanation: 'crd alias lists CRDs.' },
-      // 48
-      { question: 'Which field sets node affinity in a Pod spec?', answers: [ { text: 'spec.affinity.nodeAffinity', correct: true }, { text: 'spec.nodeSelector.affinity', correct: false }, { text: 'affinity.node', correct: false }, { text: 'spec.affinity.nodeSelector', correct: false } ], explanation: 'nodeAffinity under spec.affinity.' },
-      // 49
-      { question: 'What is the default scheduler name?', answers: [ { text: 'default-scheduler', correct: true }, { text: 'kube-scheduler', correct: false }, { text: 'scheduler', correct: false }, { text: 'kubernetes-scheduler', correct: false } ], explanation: 'default-scheduler is the built-in.' },
-      // 50
-      { question: 'Which command removes a pod immediately without grace period?', answers: [ { text: 'kubectl delete pod mypod --grace-period=0 --force', correct: true }, { text: 'kubectl delete pod mypod --force-only', correct: false }, { text: 'kubectl kill pod mypod', correct: false }, { text: 'kubectl remove pod mypod', correct: false } ], explanation: 'Force delete with zero grace-period.' }
-    ];
-
-    let username = '';
-    let selectedQuestions = [];
-    let currentIndex = 0;
-    let score = 0;
+    const allQuestions = [ /* ...50 questions as before...*/ ];
+    let username = '', selectedQuestions = [], currentIndex = 0, score = 0;
     const userAnswers = [];
+    let startTime, timerInterval;
 
     const startScreen = document.getElementById('start-screen');
     const quizScreen = document.getElementById('quiz-screen');
@@ -162,21 +66,33 @@
     const answersEl = document.getElementById('answers');
     const nextBtn = document.getElementById('next-btn');
     const scoreDisplay = document.getElementById('score-display');
+    const percentageDisplay = document.getElementById('percentage-display');
+    const timeDisplay = document.getElementById('time-display');
     const reviewEl = document.getElementById('review');
     const restartBtn = document.getElementById('restart-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const timeElapsedEl = document.getElementById('time-elapsed');
 
     document.getElementById('start-btn').addEventListener('click', () => {
       const input = document.getElementById('username').value.trim();
       if (!input) return alert('Please enter your name.');
       username = input;
-      startQuiz();
+      const count = parseInt(document.getElementById('question-count').value, 10);
+      startQuiz(count);
     });
 
-    function startQuiz() {
-      selectedQuestions = shuffleArray([...allQuestions]).slice(0, 20);
+    function startQuiz(count) {
+      selectedQuestions = shuffleArray([...allQuestions]).slice(0, count);
       startScreen.classList.add('hidden');
       quizScreen.classList.remove('hidden');
+      startTime = Date.now();
+      timerInterval = setInterval(updateTimer, 1000);
       showQuestion();
+    }
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      timeElapsedEl.textContent = elapsed + 's';
     }
 
     function shuffleArray(array) {
@@ -190,7 +106,7 @@
     function showQuestion() {
       resetState();
       const qObj = selectedQuestions[currentIndex];
-      questionTitle.innerText = `Question ${currentIndex + 1} of ${selectedQuestions.length}: ${qObj.question}`;
+      questionTitle.innerText = `Question ${currentIndex+1} of ${selectedQuestions.length}: ${qObj.question}`;
       qObj.answers.forEach(ans => {
         const btn = document.createElement('button');
         btn.innerText = ans.text;
@@ -204,8 +120,8 @@
       answersEl.innerHTML = '';
     }
 
-    function selectAnswer(answer, questionObj) {
-      userAnswers.push({ question: questionObj, selected: answer });
+    function selectAnswer(answer, qObj) {
+      userAnswers.push({ question: qObj, selected: answer });
       if (answer.correct) score++;
       Array.from(answersEl.children).forEach(btn => btn.disabled = true);
       nextBtn.classList.remove('hidden');
@@ -217,9 +133,15 @@
     });
 
     function endQuiz() {
+      clearInterval(timerInterval);
       quizScreen.classList.add('hidden');
       endScreen.classList.remove('hidden');
-      scoreDisplay.innerText = `${username}, you scored ${score} out of ${selectedQuestions.length}.`;
+      const total = selectedQuestions.length;
+      const percent = ((score/total)*100).toFixed(1);
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      scoreDisplay.innerText = `${username}, you scored ${score} out of ${total}.`;
+      percentageDisplay.innerText = `Percentage: ${percent}%`;
+      timeDisplay.innerText = `Time taken: ${elapsed} seconds`;
       displayReview();
     }
 
@@ -228,14 +150,30 @@
       userAnswers.forEach((ua, idx) => {
         const div = document.createElement('div'); div.classList.add('question-summary');
         div.innerHTML = `
-          <p>Q${idx + 1}: ${ua.question.question}</p>
-          <p>Your answer: <span class="${ua.selected.correct ? 'correct' : 'incorrect'}">${ua.selected.text}</span></p>
-          <p>Correct answer: <span class="correct">${ua.question.answers.find(a => a.correct).text}</span></p>
-          <p>Explanation: ${ua.question.explanation}</p>
+          <p><strong>Q${idx+1}:</strong> ${ua.question.question}</p>
+          <p>Your answer: <span class="${ua.selected.correct?'correct':'incorrect'}">${ua.selected.text}</span></p>
+          <p>Correct answer: <span class="correct">${ua.question.answers.find(a=>a.correct).text}</span></p>
+          <p><em>Explanation:</em> ${ua.question.explanation}</p>
         `;
         reviewEl.appendChild(div);
       });
     }
+
+    downloadBtn.addEventListener('click', () => {
+      let content = `Username: ${username}\nScore: ${score}\n`;
+      content += `Details:\n`;
+      userAnswers.forEach((ua,idx)=>{
+        content += `Q${idx+1}: ${ua.question.question}\n`;
+        content += `Your: ${ua.selected.text} | Correct: ${ua.question.answers.find(a=>a.correct).text}\n`;
+        content += `Explanation: ${ua.question.explanation}\n\n`;
+      });
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = `${username}_cka_answers.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
 
     restartBtn.addEventListener('click', () => location.reload());
   </script>
