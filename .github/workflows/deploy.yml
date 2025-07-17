@@ -6,8 +6,8 @@ on:
       - main
 
 permissions:
-  contents: write       # needed for commit and tagging
-  packages: write       # if you choose GITHUB_TOKEN for GHCR login
+  contents: write       # for committing version.txt bump
+  packages: write       # for pushing images to GHCR
 
 jobs:
   bump:
@@ -18,8 +18,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          persist-credentials: true  # allow commits
-          fetch-depth: 0            # needed for git tags
+          persist-credentials: true
+          fetch-depth: 0
 
       - name: Detect docs/index.html change
         id: changes
@@ -28,70 +28,24 @@ jobs:
           filters:
             docs:
               - 'docs/index.html'
-      
-      - name: Debug docs filter
-        run: echo "docs changed? ${{ steps.changes.outputs.docs }}"
-
 
       - name: Bump version
         if: steps.changes.outputs.docs == 'true'
         id: bump
         run: |
-          # read current version, strip "v"
           CURRENT=$(cat version.txt)
           NUMBER=${CURRENT#v}
-          NEXT=$((NUMBER+1))
+          NEXT=$((NUMBER + 1))
           NEW="v$NEXT"
           echo "$NEW" > version.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add version.txt
           git commit -m "ci: bump version to $NEW"
-          git tag $NEW
+          git tag "$NEW"
           git push origin main --follow-tags
-          # expose for next job
           echo "new_version=$NEW" >> $GITHUB_OUTPUT
 
       - name: Skip bump
         if: steps.changes.outputs.docs != 'true'
-        run: echo "No docs/index.html changes — keeping existing version."
-  
-  build-and-deploy:
-    needs: bump
-    runs-on: ubuntu-latest
-    env:
-      IMAGE_TAG: ${{ needs.bump.outputs.new_version }}
-      KUBECONFIG: ${{ github.workspace }}/cks.kubeconfig
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Build & push Docker image ${{ env.IMAGE_TAG }}
-        uses: docker/build-push-action@v4
-        with:
-          push: true
-          tags: ghcr.io/sr1ram/sr1ram:${{ env.IMAGE_TAG }}
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-
-      - name: Configure kubeconfig
-        run: |
-          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > "$KUBECONFIG"
-
-      - name: Deploy ${{ env.IMAGE_TAG }} to CoreWeave CKS
-        run: |
-          kubectl --kubeconfig="$KUBECONFIG" \
-            set image deployment/sr1ram nginx=ghcr.io/sr1ram/sr1ram:${{ env.IMAGE_TAG }}
-          kubectl --kubeconfig="$KUBECONFIG" \
-            rollout status deployment/sr1ram --timeout=5m
+        run: echo "No do
