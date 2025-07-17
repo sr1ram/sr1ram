@@ -6,14 +6,14 @@ on:
       - main
 
 permissions:
-  contents: write       # for committing version.txt bump
-  packages: write       # for pushing images to GHCR
+  contents: write   # for committing version.txt bumps
+  packages: write   # for pushing images (if using GITHUB_TOKEN) or required by docker/login
 
 jobs:
   bump:
     runs-on: ubuntu-latest
     outputs:
-      new_version: ${{ steps.bump.outputs.new_version }}
+      new_version: ${{ steps.get-version.outputs.new_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,13 +25,12 @@ jobs:
         id: changes
         uses: dorny/paths-filter@v2
         with:
-          filters: |
+          filters:
             docs:
               - 'docs/index.html'
 
       - name: Bump version
         if: steps.changes.outputs.docs == 'true'
-        id: bump
         run: |
           CURRENT=$(cat version.txt)
           NUMBER=${CURRENT#v}
@@ -44,11 +43,14 @@ jobs:
           git commit -m "ci: bump version to $NEW"
           git tag "$NEW"
           git push origin main --follow-tags
-          echo "new_version=$NEW" >> $GITHUB_OUTPUT
 
       - name: Skip bump
         if: steps.changes.outputs.docs != 'true'
-        run: echo "No docs/index.html changes; version remains $(cat version.txt)."
+        run: echo "No docs/index.html change; keeping version $(cat version.txt)"
+
+      - name: Read version
+        id: get-version
+        run: echo "new_version=$(cat version.txt)" >> $GITHUB_OUTPUT
 
   build-and-deploy:
     needs: bump
