@@ -1,28 +1,50 @@
-name: Build & Deploy to CoreWeave
+name: Build & Deploy v1 to CoreWeave
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+permissions:
+  contents: read   # for actions/checkout
+  packages: write  # if you switch to using GITHUB_TOKEN for GHCR
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      # path where we'll write your kubeconfig
+      KUBECONFIG: ${{ github.workspace }}/cks.kubeconfig
+
     steps:
-      # … your checkout / build / login steps …
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build & push Docker image v1
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          tags: ghcr.io/sr1ram/sr1ram:v1
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
-      - name: Write out CKS kubeconfig
+      - name: Configure kubeconfig
         run: |
-          echo "${{ secrets.KUBE_CONFIG_DATA }}" \
-            | base64 --decode > cks.kubeconfig
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > "$KUBECONFIG"
 
-      - name: Deploy to CoreWeave CKS
+      - name: Deploy v1 to CoreWeave CKS
         run: |
-          kubectl --kubeconfig=cks.kubeconfig \
-            set image deployment/sr1ram nginx=ghcr.io/sr1ram/sr1ram:${{ github.sha }}
-          kubectl --kubeconfig=cks.kubeconfig \
-            rollout status deployment/sr1ram --timeout=2m
+          kubectl --kubeconfig="$KUBECONFIG" \
+            set image deployment/sr1ram nginx=ghcr.io/sr1ram/sr1ram:v1
+          kubectl --kubeconfig="$KUBECONFIG" \
+            rollout status deployment/sr1ram --timeout=5m
