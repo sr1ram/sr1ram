@@ -36,8 +36,8 @@ This repository contains a static, client-side mock quiz for the CKA exam, serve
 
 ## Prerequisites
 
-- [Git][git]  
-- [Docker][docker] (for containerized deployment)  
+- Git
+- Docker (for containerized deployment)  
 
 > If you just want to open the quiz in your browser, you don’t need Docker.
 
@@ -52,7 +52,7 @@ cd sr1ram
 ## Usage
 
 ## Run on browser 
-You can access the quiz on https://sr1ram.github.io/sr1ram/ or directly from your VDI on .........
+You can access the quiz right away on https://sr1ram.github.io/sr1ram/ or directly from your VDI on .........
 
 ## Run Locally (static)
 
