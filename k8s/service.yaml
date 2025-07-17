@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sr1ram-lb
+  annotations:
+    # Tell CoreWeave to provision a PUBLIC load-balancer
+    service.beta.kubernetes.io/coreweave-load-balancer-type: public
+spec:
+  type: LoadBalancer
+  # Preserve client source IP (optional but recommended)
+  externalTrafficPolicy: Local
+  selector:
+    app: sr1ram
+  ports:
+    - port: 80
+      targetPort: 80
