@@ -237,3 +237,5 @@ The CI pipeline is defined in `.github/workflows/deploy.yml`. It triggers on pus
    - `packages: write` for pushing images to GHCR.
 
 This CI setup ensures end-to-end automation from content changes to production deployment, with clear versioning and reproducibility.
+
+Made with :heart: for Kubernetes learners.
