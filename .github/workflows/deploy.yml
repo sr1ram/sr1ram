@@ -28,6 +28,10 @@ jobs:
           filters:
             docs:
               - 'docs/index.html'
+      
+      - name: Debug docs filter
+        run: echo "docs changed? ${{ steps.changes.outputs.docs }}"
+
 
       - name: Bump version
         if: steps.changes.outputs.docs == 'true'
